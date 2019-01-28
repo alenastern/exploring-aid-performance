@@ -1,0 +1,252 @@
+---
+title: "Exploratory Data Visualizations - Short Paper"
+author: "Alena Stern"
+date: "1/27/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(countrycode)
+library(RColorBrewer)
+library(lubridate)
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+#library(reshape)
+library(scales)
+library(devtools)
+library(aidtools)
+library(ggalluvial)
+library(here)
+library(dplyr)
+
+# use data cleaning script from exploration plots assignment to load and clean data
+source(here("data_cleaning.R"))
+```
+
+
+# Plot 1: How does development project performance vary by region?
+
+```{r plot 1, fig.width = 10, fig.height = 8}
+data %>%
+  filter(completion_year > 2000) %>%
+  select(region, performance_cat) %>%
+  group_by(region, performance_cat) %>%
+  summarise(
+    count = n()
+  ) %>%
+  filter(!is.na(region) & region != "Northern America") %>%
+  ggplot(aes(x = region, y = count,fill = fct_rev(performance_cat))) + 
+  geom_bar(position = "fill",stat = "identity") +
+  scale_y_continuous(labels = percent_format(), expand = c(0, 0)) +
+  scale_fill_manual(values = rev(brewer.pal(6, "RdYlGn")), na.value = "grey39") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(x = "Region", y = "Percentage of Projects (Completion Date 2000-2015)", fill = "Project Performance Category",
+       title = "The Majority of Development Projects are Satisfactory Across Nearly All Regions", 
+       subtitle = "Eastern Asia leads in performance while Micronesia and Melanesia have majority unsatisfactory projects",
+       caption = "Source: Project Performance Database (Honig 2018)") +
+  theme(plot.title=element_text(face = "bold"))
+```
+
+Development projects from 2000-2015 overwhelmingly received satisfactory ratings, with most regions having nearly three quarters of all projects rated "marginally satisfactory", "satisfactory", or "highly satisfactory". Melanesia and Micronesia are the notable exceptions to this trend, with the majority of projects evaluated to be "marginally unsatisfactory", "unsatisfactory", or "highly unsatisfactory". It is possible that  project performance is hindered by the difficult implementation conditions of small island nations hinders or the relatively limited donor experince in these regions (due to the smaller number of projects). Eastern Asia leads all regions in project success, with the fewest projects receiving ratings on the unsatisfactory half of the scale, and the most projects receiving the top "highly satisfactory" rating.
+
+# Plot 2: What countries have a disproportionate share of unsatisfactory projects?
+
+```{r plot 2, fig.height = 8, fig.width = 8}
+d_split <- data %>% 
+  filter(completion_year > 2000) %>%
+  select(country_name, continent, satisfactory, unsatisfactory) %>%
+  group_by_at(c("country_name", "continent")) %>%
+  summarise(
+    count_all = n(),
+    count_satisfactory = sum(satisfactory, na.rm = TRUE),
+    count_unsatisfactory = sum(unsatisfactory, na.rm = TRUE),
+    pct_satisfactory = count_satisfactory/count_all,
+    pct_unsatisfactory = count_unsatisfactory/count_all
+  ) %>% 
+  filter(!is.na(country_name))
+
+top20 <- d_split %>% arrange(desc(pct_unsatisfactory))
+top20 <- top20[1:20,]
+top20 <- top20 %>% 
+  select(country_name, continent, pct_unsatisfactory) %>% 
+  as.data.frame() %>%
+  add_row(country_name = 'Global Average', continent = "Global Average", pct_unsatisfactory = mean(d_split$pct_unsatisfactory))
+top20$country_name[top20$country_name == "Micronesia (Federated States of)"] <- "Micronesia"
+
+### Most disproportionate unsatisfactory projects ###
+
+ggplot(top20, aes(x=reorder(country_name, pct_unsatisfactory), y=pct_unsatisfactory, label=pct_unsatisfactory)) + 
+  geom_bar(stat='identity', aes(fill= continent), width=.5)  +
+  labs( x = "Country", y = "Percentage of Projects Unsatisfactory (2000-2015)", 
+        title ="Nauru, Botswana Have the Largest Proportion of Unsatisfactory Projects", 
+        subtitle = "The 20 countries with the highest proportion of unsatisfactory projects are concentrated \n in Africa and New Zealand + Oceania",
+        fill = "Continent", 
+        caption = "Source: Project Performance Database (Honig 2018)") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_text(aes(label=paste(round(pct_unsatisfactory*100,2),'%', '')), size =3, position=position_dodge(width=0.9), hjust= -0.04) +
+  scale_y_continuous(labels = percent_format(), expand = c(.06, .06)) +
+  coord_flip() +
+  theme(plot.title = element_text( face ="bold", hjust = 0.0), plot.subtitle = element_text(hjust = 0.0))
+```
+
+To dig deeper into the geographic distribution of project performance, we examine the countries that have the highest proportion of unsatisfactory projects. Two key findings jump out: first, all projects in Nauru and Botswana captured in the databse since 2000 are unsatisfactory, though these results must be interpreted with caution given the small number of projects (n = 1 and n = 5 respectively). Second, even though all regions of Africa had less than 30% unsuccessful projects overall, we see several African countries on the top 20 list. This begs further exploration into the determinants of project performance in these countries. 
+
+# Plot 3: How do project performance trends over time in Africa compare to other continents in the most funded sectors?
+
+```{r plot 3, fig.width = 12, fig.height = 10}
+
+## Identify top 9 most highly funded sectors in Africa since 2000 ##
+top_sectors <- data %>%
+  filter(completion_year > 2000 & africa_dummy == "Africa") %>%
+  group_by(sector_agg_name) %>%
+  summarise(total_fund = sum(project_cost, na.rm = TRUE)) %>%
+  arrange(desc(total_fund))
+
+
+africa_top9 <- data %>% 
+  filter(completion_year > 2000) %>%
+  select(completion_year, six_overall_rating, sector_agg_name, africa_dummy) %>%
+  filter(sector_agg_name %in% top_sectors$sector_agg_name[1:9]) %>%
+  group_by(sector_agg_name, africa_dummy, completion_year) %>%
+  summarize(
+    avg_performance = mean(six_overall_rating, na.rm = TRUE)
+  ) 
+
+africa_top9$sector_agg_name <- factor(africa_top9$sector_agg_name, levels = top_sectors$sector_agg_name[1:9])
+
+ggplot(africa_top9, aes(x = completion_year, y = avg_performance, linetype=africa_dummy, color = africa_dummy)) +
+  coord_cartesian(ylim = c(3, 6)) +
+  geom_smooth(method = "lm") +
+  facet_wrap(~sector_agg_name, ncol = 3) + 
+  scale_x_continuous(name = "Year", limits = c(2000,2013)) +
+  labs(x = "Project Completion Year", y = "Average Performance Ranking (6 = Highly Satisfactory, 1 = Highly Unsatisfactory", color = "Region", linetype = "Region",
+       title = "Africa Diverges from Other Continents in Education, Health, Reproductive Health, and Water and Sanitation Performance Trends", 
+       subtitle = "Across the nine most funded sectors (ordered row-wise by funding amount from 1 in top left to 9 in bottom right) in Africa since 2000, trends are disperate in sectors building human capital \nwhile parallel in sectors building economic capital",
+       caption = "Source: Project Performance Database (Honig 2018)") +
+  theme(plot.title = element_text(face ="bold"))
+```
+
+The plot above highlights an interesting split in performance between sectors that build human capital (health, education, sanitation, etc.) and sectors that build economic capital (governance, infrastructure, energy, etc.). The performance trends in Africa are fairly parallel with other continents in the most funded economic capital sectors, but diverge in the most funded human capital sectors: health, education, reproductive health, and water and sanitation. We also see that the direction of the divergence varies across sectors: Africa improves more than other continents in education and water and sanitation, while other continents out-improve Africa in health and reproductive health. This plot also highlights the strong negative trend for both Africa and other continents in action related to debt. 
+
+# Plot 4: Do leader and donor development priorities align in Ghana?
+
+```{r plot 4, fig.width = 10, fig.height=9}
+
+# reshape data for ghana and rank SDGs by total fundin
+data_sdg_ghana <- data_sdg %>%
+  filter(country_name == "Ghana" & completion_year > 2005) %>%
+  select(aiddata_id, goal_1, goal_2, goal_3, goal_4, goal_5, goal_6, goal_7, goal_8, goal_9, goal_10, goal_11, goal_12, goal_13,
+         goal_14, goal_15, goal_16, goal_17, six_overall_rating) %>%
+  gather(key = "goal", value = "funding", goal_1, goal_2, goal_3, goal_4, goal_5, goal_6, goal_7, goal_8, goal_9, goal_10, goal_11, goal_12, goal_13,
+         goal_14, goal_15, goal_16, goal_17) %>%
+  filter(funding > 0) %>%
+  group_by(goal) %>%
+  summarise(
+    funding = sum(funding, na.rm = TRUE),
+    performance = mean(six_overall_rating, na.rm = TRUE)
+  ) %>%
+  mutate(rank = rank(-funding, ties.method ="random")
+  )
+
+# rename goal numbers to goal names
+data_sdg_ghana$goal[data_sdg_ghana$goal == "goal_1"] <- "No poverty"
+data_sdg_ghana$goal[data_sdg_ghana$goal == "goal_2"] <- "Zero hunger"
+data_sdg_ghana$goal[data_sdg_ghana$goal == "goal_3"] <- "Good health"
+data_sdg_ghana$goal[data_sdg_ghana$goal == "goal_4"] <- "Quality education"
+data_sdg_ghana$goal[data_sdg_ghana$goal == "goal_5"] <- "Gender equality"
+data_sdg_ghana$goal[data_sdg_ghana$goal == "goal_6"] <- "Clean water/sanitation"
+data_sdg_ghana$goal[data_sdg_ghana$goal == "goal_7"] <- "Affordable/clean energy"
+data_sdg_ghana$goal[data_sdg_ghana$goal == "goal_8"] <- "Economic growth"
+data_sdg_ghana$goal[data_sdg_ghana$goal == "goal_9"] <- "Industry/infra."
+data_sdg_ghana$goal[data_sdg_ghana$goal == "goal_10"] <- "Reduced inequalities"
+data_sdg_ghana$goal[data_sdg_ghana$goal == "goal_11"] <- "Sustainable cities"
+data_sdg_ghana$goal[data_sdg_ghana$goal == "goal_12"] <- "Responsible consumption"
+data_sdg_ghana$goal[data_sdg_ghana$goal == "goal_13"] <- "Climate Action"
+data_sdg_ghana$goal[data_sdg_ghana$goal == "goal_14"] <- "Life below water"
+data_sdg_ghana$goal[data_sdg_ghana$goal == "goal_15"] <- "Life on land"
+data_sdg_ghana$goal[data_sdg_ghana$goal == "goal_16"] <- "Peace/justice & strong inst."
+data_sdg_ghana$goal[data_sdg_ghana$goal == "goal_17"] <- "Partnerships for the goals"
+
+# merge in Listening to Leaders survey data
+ltl_ghana <- ltl %>% filter(CountryID == "Ghana") %>%
+  mutate(rank = rank(-p, ties.method = "random"))
+
+data_sdg_ghana <- merge(x=data_sdg_ghana, y=ltl_ghana,by.x="goal", by.y="q8_response", all.x = TRUE, all.y = TRUE)
+data_sdg_ghana$rank.x[is.na(data_sdg_ghana$rank.x)] <- 17
+data_sdg_ghana$rank.y[is.na(data_sdg_ghana$rank.y)] <- 17
+data_sdg_ghana$discrete_performance = cut(data_sdg_ghana$performance, breaks=seq(from=3, to=6, length.out=8))
+
+ggplot(data_sdg_ghana, aes(x= rank.x, y = rank.y, fill = discrete_performance)) + 
+  geom_point(shape = 21, size = 4) +
+  geom_text(label= data_sdg_ghana$goal,nudge_y = 0.45, check_overlap = T, vjust="inward",hjust="inward") +
+  #scale_fill_gradient(low = "yellow", high = "blue", na.value = "grey") +
+  scale_fill_brewer(palette="RdYlBu", na.value="dark gray") +
+  #scale_size_area(max_size = 15, labels = comma) +
+  scale_y_reverse(name = "Leader Priority", breaks = seq(1, 17, 1)) +
+  scale_x_reverse(name = "Donor Priority", breaks = seq(1, 17, 1)) +
+  labs(y = "Leader Priority", x = "Donor Priority", fill = "Average Performance", size = "Total Spending",
+       title = "Ghanaian Leaders and Donors Diverge in Development Priorities", 
+       subtitle = "Ghanian Leaders Prioritize Economic Growth, While Donors Prefer Funding Health Programs") +
+  geom_abline(intercept = 0, slope = 1, color = "dark green") +
+  annotate("text", label = "Sources: Project Performance \nDatabase (Honig 2018), \nListening to Leaders \n(Custer et al 2018)", x = 2.5, y = 15, size = 3) +
+  annotate("text", label = "Higher Donor Priority >>", x = 4, y = 17, size = 4, color = "dark green", fontface =2) +
+  annotate("text", label = "Higher Leader Priority >>", x = 17, y = 4, size = 4, color = "dark green", angle = 90, fontface=2) +
+theme(axis.text=element_text(size=12), axis.title=element_text(size=14), plot.title = element_text(size = 20, face ="bold"),   plot.subtitle = element_text(size = 14), plot.caption = element_text(size = 10))
+
+```
+
+Ghanaian political and non-governmental development leaders diverge considerably from donors in their how they prioritize the 17 Sustainable Development Goals (measured through survey responses for leaders and by relative funding amounts for donors). The largest divergences can be seen in economic growth (which leaders ranked 1 and donors ranked 6) and good health (which leaders ranked 7 and donors ranked 1). We also see that the goals with the worst performance all more highly prioritized by donors than leaders (falling below the line which represents the axis of equal donor and leader prioritization). This illuminates a possible correlation between diverging prioritizatin and project performance that merits further exploration. 
+
+
+# Plot 5: How does funding flow from donors to development priorities?
+
+```{r plot 5, fig.width = 15, fig.height=15}
+ data_sdg_Ghana <- data_sdg %>%
+      filter(country_name == "Ghana" & completion_year > 2000) %>%
+      select(aiddata_id, goal_1, goal_2, goal_3, goal_4, goal_5, goal_6, goal_7, goal_8, goal_9, goal_10, goal_11, goal_12, goal_13,
+             goal_14, goal_15, goal_16, goal_17, six_overall_rating, performance_cat, satisfactory, donor) %>%
+      gather(key = "goal", value = "funding", goal_1, goal_2, goal_3, goal_4, goal_5, goal_6, goal_7, goal_8, goal_9, goal_10, goal_11, goal_12, goal_13,
+             goal_14, goal_15, goal_16, goal_17) %>%
+      filter(funding > 0 & !is.na(satisfactory))
+    
+    data_sdg_Ghana$goal[data_sdg_Ghana$goal == "goal_1"] <- "No poverty"
+    data_sdg_Ghana$goal[data_sdg_Ghana$goal == "goal_2"] <- "Zero hunger"
+    data_sdg_Ghana$goal[data_sdg_Ghana$goal == "goal_3"] <- "Good health"
+    data_sdg_Ghana$goal[data_sdg_Ghana$goal == "goal_4"] <- "Quality education"
+    data_sdg_Ghana$goal[data_sdg_Ghana$goal == "goal_5"] <- "Gender equality"
+    data_sdg_Ghana$goal[data_sdg_Ghana$goal == "goal_6"] <- "Clean water/sanitation"
+    data_sdg_Ghana$goal[data_sdg_Ghana$goal == "goal_7"] <- "Affordable/clean energy"
+    data_sdg_Ghana$goal[data_sdg_Ghana$goal == "goal_8"] <- "Economic growth"
+    data_sdg_Ghana$goal[data_sdg_Ghana$goal == "goal_9"] <- "Industry/infra."
+    data_sdg_Ghana$goal[data_sdg_Ghana$goal == "goal_10"] <- "Reduced inequalities"
+    data_sdg_Ghana$goal[data_sdg_Ghana$goal == "goal_11"] <- "Sustainable cities"
+    data_sdg_Ghana$goal[data_sdg_Ghana$goal == "goal_12"] <- "Responsible consumption"
+    data_sdg_Ghana$goal[data_sdg_Ghana$goal == "goal_13"] <- "Climate Action"
+    data_sdg_Ghana$goal[data_sdg_Ghana$goal == "goal_14"] <- "Life below water"
+    data_sdg_Ghana$goal[data_sdg_Ghana$goal == "goal_15"] <- "Life on land"
+    data_sdg_Ghana$goal[data_sdg_Ghana$goal == "goal_16"] <- "Peace/justice & strong inst."
+    data_sdg_Ghana$goal[data_sdg_Ghana$goal == "goal_17"] <- "Partnerships for the goals"
+    
+    ltl_Ghana <- ltl %>% filter(CountryID == "Ghana") %>%
+      mutate(rank = rank(-p, ties.method = "random"))
+    
+    data_sdg_Ghana <- merge(x=data_sdg_Ghana, y=ltl_Ghana,by.x="goal", by.y="q8_response", all.x = TRUE, all.y = TRUE)
+    data_sdg_Ghana$rank[is.na(data_sdg_Ghana$rank)] <- 17
+    data_sdg_Ghana$funding[is.na(data_sdg_Ghana$funding)] <- 0
+    
+    ggplot(data_sdg_Ghana, aes(y = funding, axis1 = donor, axis2 = goal, axis3 = as.factor(rank))) +
+      geom_alluvium(aes(fill = as.factor(satisfactory))) +
+      geom_stratum() +
+      geom_label(stat = "stratum", label.strata = TRUE) +
+      scale_y_continuous(labels = comma) +
+      scale_x_discrete(limits = c("Donor", "SDG", "Leader Priority Rank"), expand = c(.1, .05)) +
+      #theme_minimal() +
+      labs(y = "Funding", fill = "Satisfactory",
+       title = "The World Bank is the Dominant Funder in Ghana, Focusing on Health and Strong Institutions", 
+       subtitle = "Ghana Satisfactory and Unsatisfactory Development Projects by Donor, SDG, and Leader Rank",
+       caption = "Sources: Project Performance Database (Honig 2018), Listening to Leaders (Custer et al 2018)") +
+       theme(axis.text=element_text(size=12), axis.title=element_text(size=14), plot.title = element_text(size = 20, face ="bold"),   plot.subtitle = element_text(size = 14), plot.caption = element_text(size = 10))
+```
+
+This chart illuminates that the World Bank is not only far and away the largest donor to Ghana since 2000, but also tends to fund fewer, higher cost projects in its most funded Sustainable Development Goals of good health and peace, justice, and strong institutions. However, a result of this is that a single large unsatisfactory World Bank health project dramatically changes the performance composition of the entire sector in Ghana. We also observe considerable specialization across donors, with DFID emerging as the dominant funder of quality education and sole funder of gender equality, and the World Bank dominating the good health goal and serving as the sole funder of affordable/clean energy.   
