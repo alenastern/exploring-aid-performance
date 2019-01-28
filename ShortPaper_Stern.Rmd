@@ -5,14 +5,13 @@ date: "1/27/2019"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r, include=FALSE}
 library(countrycode)
 library(RColorBrewer)
 library(lubridate)
 library(tidyverse)
 library(ggplot2)
 library(readxl)
-#library(reshape)
 library(scales)
 library(devtools)
 library(aidtools)
@@ -27,7 +26,7 @@ source(here("data_cleaning.R"))
 
 # Plot 1: How does development project performance vary by region?
 
-```{r plot 1, fig.width = 10, fig.height = 8}
+```{r, fig.width = 10, fig.height = 8}
 data %>%
   filter(completion_year > 2000) %>%
   select(region, performance_cat) %>%
@@ -50,9 +49,11 @@ data %>%
 
 Development projects from 2000-2015 overwhelmingly received satisfactory ratings, with most regions having nearly three quarters of all projects rated "marginally satisfactory", "satisfactory", or "highly satisfactory". Melanesia and Micronesia are the notable exceptions to this trend, with the majority of projects evaluated to be "marginally unsatisfactory", "unsatisfactory", or "highly unsatisfactory". It is possible that  project performance is hindered by the difficult implementation conditions of small island nations hinders or the relatively limited donor experince in these regions (due to the smaller number of projects). Eastern Asia leads all regions in project success, with the fewest projects receiving ratings on the unsatisfactory half of the scale, and the most projects receiving the top "highly satisfactory" rating.
 
+#
+
 # Plot 2: What countries have a disproportionate share of unsatisfactory projects?
 
-```{r plot 2, fig.height = 8, fig.width = 8}
+```{r, fig.height = 8, fig.width = 8}
 d_split <- data %>% 
   filter(completion_year > 2000) %>%
   select(country_name, continent, satisfactory, unsatisfactory) %>%
@@ -92,9 +93,11 @@ ggplot(top20, aes(x=reorder(country_name, pct_unsatisfactory), y=pct_unsatisfact
 
 To dig deeper into the geographic distribution of project performance, we examine the countries that have the highest proportion of unsatisfactory projects. Two key findings jump out: first, all projects in Nauru and Botswana captured in the databse since 2000 are unsatisfactory, though these results must be interpreted with caution given the small number of projects (n = 1 and n = 5 respectively). Second, even though all regions of Africa had less than 30% unsuccessful projects overall, we see several African countries on the top 20 list. This begs further exploration into the determinants of project performance in these countries. 
 
+# 
+
 # Plot 3: How do project performance trends over time in Africa compare to other continents in the most funded sectors?
 
-```{r plot 3, fig.width = 12, fig.height = 10}
+```{r, fig.width = 12, fig.height = 10, warning= FALSE}
 
 ## Identify top 9 most highly funded sectors in Africa since 2000 ##
 top_sectors <- data %>%
@@ -129,9 +132,11 @@ ggplot(africa_top9, aes(x = completion_year, y = avg_performance, linetype=afric
 
 The plot above highlights an interesting split in performance between sectors that build human capital (health, education, sanitation, etc.) and sectors that build economic capital (governance, infrastructure, energy, etc.). The performance trends in Africa are fairly parallel with other continents in the most funded economic capital sectors, but diverge in the most funded human capital sectors: health, education, reproductive health, and water and sanitation. We also see that the direction of the divergence varies across sectors: Africa improves more than other continents in education and water and sanitation, while other continents out-improve Africa in health and reproductive health. This plot also highlights the strong negative trend for both Africa and other continents in action related to debt. 
 
+#
+
 # Plot 4: Do leader and donor development priorities align in Ghana?
 
-```{r plot 4, fig.width = 10, fig.height=9}
+```{r, fig.width = 10, fig.height=9}
 
 # reshape data for ghana and rank SDGs by total fundin
 data_sdg_ghana <- data_sdg %>%
@@ -180,9 +185,7 @@ data_sdg_ghana$discrete_performance = cut(data_sdg_ghana$performance, breaks=seq
 ggplot(data_sdg_ghana, aes(x= rank.x, y = rank.y, fill = discrete_performance)) + 
   geom_point(shape = 21, size = 4) +
   geom_text(label= data_sdg_ghana$goal,nudge_y = 0.45, check_overlap = T, vjust="inward",hjust="inward") +
-  #scale_fill_gradient(low = "yellow", high = "blue", na.value = "grey") +
   scale_fill_brewer(palette="RdYlBu", na.value="dark gray") +
-  #scale_size_area(max_size = 15, labels = comma) +
   scale_y_reverse(name = "Leader Priority", breaks = seq(1, 17, 1)) +
   scale_x_reverse(name = "Donor Priority", breaks = seq(1, 17, 1)) +
   labs(y = "Leader Priority", x = "Donor Priority", fill = "Average Performance", size = "Total Spending",
@@ -198,10 +201,11 @@ theme(axis.text=element_text(size=12), axis.title=element_text(size=14), plot.ti
 
 Ghanaian political and non-governmental development leaders diverge considerably from donors in their how they prioritize the 17 Sustainable Development Goals (measured through survey responses for leaders and by relative funding amounts for donors). The largest divergences can be seen in economic growth (which leaders ranked 1 and donors ranked 6) and good health (which leaders ranked 7 and donors ranked 1). We also see that the goals with the worst performance all more highly prioritized by donors than leaders (falling below the line which represents the axis of equal donor and leader prioritization). This illuminates a possible correlation between diverging prioritizatin and project performance that merits further exploration. 
 
+# 
 
 # Plot 5: How does funding flow from donors to development priorities?
 
-```{r plot 5, fig.width = 15, fig.height=15}
+```{r, fig.width = 15, fig.height=15}
  data_sdg_Ghana <- data_sdg %>%
       filter(country_name == "Ghana" & completion_year > 2000) %>%
       select(aiddata_id, goal_1, goal_2, goal_3, goal_4, goal_5, goal_6, goal_7, goal_8, goal_9, goal_10, goal_11, goal_12, goal_13,
@@ -250,3 +254,5 @@ Ghanaian political and non-governmental development leaders diverge considerably
 ```
 
 This chart illuminates that the World Bank is not only far and away the largest donor to Ghana since 2000, but also tends to fund fewer, higher cost projects in its most funded Sustainable Development Goals of good health and peace, justice, and strong institutions. However, a result of this is that a single large unsatisfactory World Bank health project dramatically changes the performance composition of the entire sector in Ghana. We also observe considerable specialization across donors, with DFID emerging as the dominant funder of quality education and sole funder of gender equality, and the World Bank dominating the good health goal and serving as the sole funder of affordable/clean energy.   
+
+# 
