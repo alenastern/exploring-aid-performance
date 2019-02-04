@@ -1,10 +1,11 @@
 ---
 title: "Exploratory Data Visualizations - Short Paper"
 author: "Alena Stern"
-date: "1/27/2019"
-output: html_document
+date: "2/3/2019"
+output: 
+  html_document:
+    code_folding: hide
 ---
-
 ```{r, include=FALSE}
 library(countrycode)
 library(extrafont)
@@ -19,30 +20,35 @@ library(aidtools)
 library(ggalluvial)
 library(here)
 library(dplyr)
+library(treemapify)
 
 # use data cleaning script from exploration plots assignment to load and clean data
 source(here("data_cleaning.R"))
+
+# use flat violin geom
+source("https://gist.githubusercontent.com/benmarwick/2a1bb0133ff568cbe28d/raw/fb53bd97121f7f9ce947837ef1a4c65a73bffb3f/geom_flat_violin.R")
 ```
 
 # Visual Theme
 
-## Main Categorical Colors
 ```{r}
 
-th <- theme(axis.title = element_text(family = "Montserrat-Italic", color = "#000000", size = 12),
-            axis.text = element_text(family = "Montserrat", color = "#000000", size = 12),
-            panel.background = element_rect(fill = "#e6e6e6"),
+th <- theme(axis.title = element_text(family = "Montserrat-Italic", color = "#000000", size = 11),
+            axis.text = element_text(family = "Montserrat", color = "#000000", size = 9),
+            panel.background = element_rect(fill = "#f2f2f2"),
             panel.grid.major = element_line (color = "#FFFFFF", size = 0.5),
-            panel.grid.minor = element_line (color = "#FFFFFF", size = 0.25),
-            plot.title = element_text(family = "Montserrat", color = "#000000", size = 18),
-            plot.subtitle = element_text(family = "Montserrat", color = "#000000", size = 14),
+            panel.grid.minor = element_line (color = "#FFFFFF", size = 0.1),
+            plot.title = element_text(family = "Montserrat", color = "#000000", size = 16),
+            plot.subtitle = element_text(family = "Montserrat", color = "#000000", size = 12),
             plot.caption = element_text(family = "Montserrat", color = "#000000", size = 10),
             legend.text = element_text(family = "Montserrat", color = "#000000", size = 10),
-            legend.title = element_text(family = "Montserrat", color = "#000000", size = 12))
-            #plot.tag = element_text(family = "Montserrat", color = "#000000", size = 10))
+            legend.title = element_text(family = "Montserrat", color = "#000000", size = 11),
+            strip.text =  element_text(family = "Montserrat", color = "#000000", size = 10))
 
 ```
   
+
+## Main Categorical Colors
 
 Colors are drawn from the [Sustainable Development Goals](https://sustainabledevelopment.un.org/sdgs) given their prominance in the development space and the direct reference to the Goals in the discussion of development priorities in the graphs. 
 
@@ -53,46 +59,34 @@ Pink: #E31480
 Red: #C42231
 Gray: #6a6a6a
 
-
 NA color:
 Dark Gray: #424242
 
 Blue Scale - 6:
-#125169 #206b8c #2699D0 (#3a86ac) #5aa1c8 #7fbdde #a9d9ef
+c("#125169", "#206b8c", "#2699D0", "#5aa1c8", "#7fbdde", "#a9d9ef")
 Blue Scale - 3
-#125169 #2699D0 #a9d9ef
+c("#125169", "#2699D0", "#a9d9ef")
 
 Orange Scale - 6:
-#b83d05 #c95714 #F69D30 (#d87124) #e78938 #f3a352 #fabe7a
+c("#b83d05", "#c95714", "#F69D30", "#e78938", "#f3a352", "#fabe7a")
 Orange Scale - 3
-#b83d05 #F89E37 #fabe7a
+c("#b83d05", "#F89E37", "#fabe7a")
 
 Diverging 6-point scale: c("#125169", "#2699D0", "#a9d9ef","#fabe7a", "#F89E37", "#b83d05")
-
-Text = Montserrat
-Title/Subtitle/Axis Labels = Montserrat-Regular
-Axis Title = Montserrat-Italic
-
-Title = 18pt, Subtitle = 14pt, Axis labels = 12pt, Axis titles = 12pt, Source: 10pt
-
-Background Color = Light Gray: #e6e6e6
-panel.grid.major = White #FFFFFF, size = .5
-panel.grid.minor = White #FFFFFF, size = .25
-
 
 
 # Plot 1: How does development project performance vary by region?
 
-```{r, fig.width = 10, fig.height = 8}
+```{r, fig.width = 12, fig.height = 9}
 data %>%
   filter(completion_year > 2000) %>%
-  select(region, performance_cat) %>%
+  select(region, performance_cat, satisfactory) %>%
   group_by(region, performance_cat) %>%
   summarise(
     count = n()
   ) %>%
   filter(!is.na(region) & region != "Northern America") %>%
-  ggplot(aes(x = region, y = count,fill = fct_rev(performance_cat))) + 
+  ggplot(aes(x = region , y = count,fill = fct_rev(performance_cat))) + 
   geom_bar(position = "fill",stat = "identity") +
   scale_y_continuous(labels = percent_format(), expand = c(0, 0)) +
   scale_fill_manual(values = c("#125169", "#2699D0", "#a9d9ef","#fabe7a", "#F89E37", "#b83d05"), na.value = "#424242") + 
@@ -110,7 +104,7 @@ Development projects from 2000-2015 overwhelmingly received satisfactory ratings
 
 # Plot 2: What countries have a disproportionate share of unsatisfactory projects?
 
-```{r, fig.height = 8, fig.width = 8}
+```{r, fig.height = 9, fig.width = 12}
 d_split <- data %>% 
   filter(completion_year > 2000) %>%
   select(country_name, continent, satisfactory, unsatisfactory) %>%
@@ -154,7 +148,7 @@ To dig deeper into the geographic distribution of project performance, we examin
 
 # Plot 3: How do project performance trends over time in Africa compare to other continents in the most funded sectors?
 
-```{r, fig.width = 10, fig.height = 8, warning= FALSE}
+```{r, fig.width = 13, fig.height = 11, warning= FALSE}
 
 ## Identify top 9 most highly funded sectors in Africa since 2000 ##
 top_sectors <- data %>%
@@ -175,15 +169,16 @@ africa_top9 <- data %>%
 
 africa_top9$sector_agg_name <- factor(africa_top9$sector_agg_name, levels = top_sectors$sector_agg_name[1:9])
 
-ggplot(africa_top9, aes(x = completion_year, y = avg_performance, linetype=africa_dummy, color = africa_dummy)) +
+ggplot(africa_top9, aes(x = completion_year, y = avg_performance, color = africa_dummy)) +
   scale_color_manual(values = c("#E31480", "#2699D0")) +
   coord_cartesian(ylim = c(3, 6)) +
   geom_smooth(method = "lm") +
   facet_wrap(~sector_agg_name, ncol = 3) + 
   scale_x_continuous(name = "Year", limits = c(2000,2013)) +
-  labs(x = "Project Completion Year", y = "Average Performance Ranking (6 = Highly Satisfactory, 1 = Highly Unsatisfactory", color = "Region", linetype = "Region",
-       title = "Africa Diverges from Other Continents in Education, Health, Reproductive Health, and Water and Sanitation Performance Trends", 
-       subtitle = "Across the nine most funded sectors (ordered row-wise by funding amount from 1 in top left to 9 in bottom right) in Africa since 2000, trends are disperate in sectors building human capital \nwhile parallel in sectors building economic capital",
+  labs(x = "Project Completion Year", y = "Average Performance Ranking (6 = Highly Satisfactory, 1 = Highly Unsatisfactory)", 
+       color = "Region",
+       title = "Africa Diverges from Other Continents in Education, Health, Rep. Health, Water & Sanitation Performance", 
+       subtitle = "Across the nine most funded sectors (ordered row-wise by funding amount from 1 in top left to 9 in bottom right) in Africa since 2000,\n trends are disperate in sectors building human capital while parallel in sectors building economic capital",
        caption = "Source: Project Performance Database (Honig 2018)") +
   th
 ```
@@ -194,9 +189,9 @@ The plot above highlights an interesting split in performance between sectors th
 
 # Plot 4: Do leader and donor development priorities align in Ghana?
 
-```{r, fig.width = 8, fig.height=7}
+```{r, fig.width = 12, fig.height=10}
 
-# reshape data for ghana and rank SDGs by total fundin
+# reshape data for ghana and rank SDGs by total funding
 data_sdg_ghana <- data_sdg %>%
   filter(country_name == "Ghana" & completion_year > 2005) %>%
   select(aiddata_id, goal_1, goal_2, goal_3, goal_4, goal_5, goal_6, goal_7, goal_8, goal_9, goal_10, goal_11, goal_12, goal_13,
@@ -238,12 +233,12 @@ ltl_ghana <- ltl %>% filter(CountryID == "Ghana") %>%
 data_sdg_ghana <- merge(x=data_sdg_ghana, y=ltl_ghana,by.x="goal", by.y="q8_response", all.x = TRUE, all.y = TRUE)
 data_sdg_ghana$rank.x[is.na(data_sdg_ghana$rank.x)] <- 17
 data_sdg_ghana$rank.y[is.na(data_sdg_ghana$rank.y)] <- 17
-data_sdg_ghana$discrete_performance = cut(data_sdg_ghana$performance, breaks=seq(from=3, to=6, length.out=8))
+data_sdg_ghana$discrete_performance = cut(data_sdg_ghana$performance, breaks= c(3, 3.5, 4, 4.5, 5, 5.5, 6))
 
 ggplot(data_sdg_ghana, aes(x= rank.x, y = rank.y, fill = discrete_performance)) + 
   geom_point(shape = 21, size = 4) +
   geom_text(label= data_sdg_ghana$goal,nudge_y = 0.45, check_overlap = T, vjust="inward",hjust="inward", family = "Montserrat") +
-  scale_fill_manual( values = rev(c("#125169", "#2699D0", "#a9d9ef","#fabe7a", "#F89E37", "#b83d05")), na.value="dark gray") +
+  scale_fill_manual( values = rev(c("#125169", "#2699D0", "#a9d9ef","#F89E37", "#b83d05")), na.value="#424242") +
   scale_y_reverse(name = "Leader Priority", breaks = seq(1, 17, 1)) +
   scale_x_reverse(name = "Donor Priority", breaks = seq(1, 17, 1)) +
   labs(y = "Leader Priority", x = "Donor Priority", fill = "Average Performance", size = "Total Spending",
@@ -301,10 +296,11 @@ Ghanaian political and non-governmental development leaders diverge considerably
     ggplot(data_sdg_Ghana, aes(y = funding, axis1 = donor, axis2 = reorder(goal, rank))) +
       geom_alluvium(aes(fill = as.factor(satisfactory))) +
       scale_fill_manual(values= c("#F69D30", "#2699D0")) +
-      geom_stratum(width = 1/10) +
-      geom_label(stat = "stratum", label.strata = TRUE) +
-      scale_y_continuous(labels = comma) +
-      scale_x_discrete(limits = c("Donor", "SDG", "Leader Priority Rank"), expand = c(.1, .05)) +
+      geom_stratum() +
+      geom_label(stat = "stratum", label.strata = TRUE, family = "Montserrat") +
+      scale_y_continuous(labels = c("$0", "$2 bil", "$4 bil", "$6 bil")) +
+      scale_x_discrete(limits = c("Donor", "SDG"), expand = c(.1, .05)) +
+       scale_linetype_manual(values = c("blank", "solid")) +
       labs(y = "Funding", fill = "Satisfactory",
        title = "The World Bank is the Dominant Funder in Ghana, Focusing on Health and Strong Institutions", 
        subtitle = "Ghana Satisfactory and Unsatisfactory Development Projects by Donor, SDG, and Leader Rank",
@@ -314,4 +310,93 @@ Ghanaian political and non-governmental development leaders diverge considerably
 
 This chart illuminates that the World Bank is not only far and away the largest donor to Ghana since 2000, but also tends to fund fewer, higher cost projects in its most funded Sustainable Development Goals of good health and peace, justice, and strong institutions. However, a result of this is that a single large unsatisfactory World Bank health project dramatically changes the performance composition of the entire sector in Ghana. We also observe considerable specialization across donors, with DFID emerging as the dominant funder of quality education and sole funder of gender equality, and the World Bank dominating the good health goal and serving as the sole funder of affordable/clean energy.   
 
-# 
+
+## Plot 6: Do score distributions vary by project cost and evaluation type? ##
+
+```{r fig.width = 12, fig.height = 12}
+
+data%>%
+  filter(!is.na(data$performance_cat) & external_evaluator %in% c("internal", "external", "independent eval office") & project_cost > 0 & project_cost < 500000000) %>%
+  mutate(performane_cat = as.factor(performance_cat)) %>%
+  ggplot(aes(x=performance_cat, y=project_cost, fill = fct_rev(performance_cat))) + 
+    geom_flat_violin(position = position_nudge(x = .2, y = 0), alpha = .8) +
+    geom_point(aes(y = project_cost, color = fct_rev(performance_cat)), 
+             position = position_jitter(width = .15), size = .5, alpha = 0.8) +
+    geom_boxplot(width = .1, outlier.shape = NA, alpha = 0.5) +
+    #expand_limits(x = 5.25) +
+    guides(fill = FALSE) +
+    guides(color = FALSE) +
+    scale_y_continuous(labels = comma, breaks = seq(0, 500000000, 100000000), expand = c(0,0)) +
+    scale_x_discrete(labels = c("highly\nunsatisfactory", "marginally\nunsatisfactory", "unsatisfactory",
+                                  "satisfactory", "marginally\nsatisfactory", "highly\nsastisfactory")) +
+    coord_flip() +
+    #scale_x_continuous(expand = c(0,0)) +
+    th +
+    theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+    scale_fill_manual(values = c("#125169", "#2699D0", "#a9d9ef","#fabe7a", "#F89E37", "#b83d05"), na.value = "#424242") +
+    scale_color_manual(values = c("#125169", "#2699D0", "#a9d9ef","#fabe7a", "#F89E37", "#b83d05"), na.value = "#424242") +
+    facet_wrap(~external_evaluator, ncol = 3) +
+    labs(x = "Project Performance Category", y = "Project Cost", fill = "Project Performance \nCategory",
+       title = "Highest Cost Projects Slightly More Likely to Receive Top Ranking", 
+       subtitle = "The highly satisfactory ranking has a higher density of more costly projects, perhaps signaling greater\nmanagement quality for higher budget programs",
+       caption = "Sources: Project Performance Database (Honig 2018)") +
+       th
+
+
+```
+
+Does a larger project budget translate to better management and higher performance? Or are large-scale projects unweildy and difficult to manage? The graph above provides weak evidence that the group of projects that receive the highest performance ranking have a larger share of high-cost programs. However, we see by the overlapping box-plots across categories for all three evaluation types that this difference is likely insignificant. We also see that the most common evaluation type is by an independent evaluation office, which is driven by the large number World Bank and the Asian Development Bank projects that are evaluated by this method. 
+
+
+### Fig 7: How does the World Bank allocate its funding across continents and SDGs? ###
+
+```{r, fig.width= 10, fig.height = 10}
+data_sdg_gather <- data_sdg %>%
+      select(aiddata_id, goal_1, goal_2, goal_3, goal_4, goal_5, goal_6, goal_7, goal_8, goal_9, goal_10, goal_11, goal_12, goal_13,
+             goal_14, goal_15, goal_16, goal_17, continent, satisfactory, donor, completion_year) %>%
+      gather(key = "goal", value = "funding", goal_1, goal_2, goal_3, goal_4, goal_5, goal_6, goal_7, goal_8, goal_9, goal_10, goal_11,                  goal_12, goal_13, goal_14, goal_15, goal_16, goal_17) %>%
+      filter(funding > 0 & !is.na(satisfactory) & donor == "WB" & completion_year >= 2000)
+
+    data_sdg_gather$goal[data_sdg_gather$goal == "goal_1"] <- "Other"
+    data_sdg_gather$goal[data_sdg_gather$goal == "goal_2"] <- "Zero hunger"
+    data_sdg_gather$goal[data_sdg_gather$goal == "goal_3"] <- "Good health"
+    data_sdg_gather$goal[data_sdg_gather$goal == "goal_4"] <- "Quality education"
+    data_sdg_gather$goal[data_sdg_gather$goal == "goal_5"] <- "Other"
+    data_sdg_gather$goal[data_sdg_gather$goal == "goal_6"] <- "Clean water/sanitation"
+    data_sdg_gather$goal[data_sdg_gather$goal == "goal_7"] <- "Affordable/clean energy"
+    data_sdg_gather$goal[data_sdg_gather$goal == "goal_8"] <- "Economic growth"
+    data_sdg_gather$goal[data_sdg_gather$goal == "goal_9"] <- "Industry/infra."
+    data_sdg_gather$goal[data_sdg_gather$goal == "goal_10"] <- "Other"
+    data_sdg_gather$goal[data_sdg_gather$goal == "goal_11"] <- "Sustainable cities"
+    data_sdg_gather$goal[data_sdg_gather$goal == "goal_12"] <- "Other"
+    data_sdg_gather$goal[data_sdg_gather$goal == "goal_13"] <- "Other"
+    data_sdg_gather$goal[data_sdg_gather$goal == "goal_14"] <- "Other"
+    data_sdg_gather$goal[data_sdg_gather$goal == "goal_15"] <- "Other"
+    data_sdg_gather$goal[data_sdg_gather$goal == "goal_16"] <- "Peace/justice & strong inst."
+    data_sdg_gather$goal[data_sdg_gather$goal == "goal_17"] <- "Other"
+    
+data_sdg_gather  %>%
+  group_by(continent, goal) %>%
+  summarise(
+    funding = sum(funding),
+    prop_satisfactory = mean(satisfactory)) %>%
+    mutate(prop_satisfactory_factor = cut(prop_satisfactory, breaks = c(0, .5, .6, .7, .8, .9, 1))) %>%
+    filter(continent != "New Zealand + Oceania") %>%
+  
+ ggplot(aes(area = funding, fill = prop_satisfactory_factor, label =goal,
+                subgroup = continent)) +
+  geom_treemap(color = "white", size = 3 , alpha = 1) +
+  geom_treemap_text(colour = "white", place = "center", reflow = T, family= "Montserrat", fontface = "bold") +
+  geom_treemap_subgroup_border(color = "#125169", size = 5) +
+  geom_treemap_subgroup_text(place = "topleft", colour =
+                             "white", fontface = "italic", family = "Montserrat") +
+  scale_fill_manual(values = rev(c("#125169", "#2699D0", "#a9d9ef","#F89E37", "#b83d05"))) + th + 
+  labs(fill = "Proportion Satisfactory \nProjects", area = "Total Funding",
+       title = "World Bank Projects Perform Worse in Africa Across Nearly All Sectors ", 
+       subtitle = "Sustainable Cities and Industry and Infrastructure are two of the World Bank's top-funded sectors\nand also best performing across continents (area = total funding)",
+       caption = "Sources: Project Performance Database (Honig 2018)"
+  )
+
+```
+
+The plot above shows the distribution of World Bank funding since 2000 by continent and Sustainable Development Goal. We clearly see that approximately half of World Bank funding has gone to Asia, where the Bank enjoys strong project performance across sectors. Africa is a different story- where at least 30% of projects are unsatisfactory across all goals except for Sustainable Cities, Clean Water and Sanitation, and Industry and Infrastructure. We also see that Health is an outlier in North America, with at least 30% of World Bank projects receiving unsatisfactory rankings. 
