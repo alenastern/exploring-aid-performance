@@ -12,7 +12,6 @@ library(extrafont)
 library(RColorBrewer)
 library(lubridate)
 library(tidyverse)
-library(ggplot2)
 library(readxl)
 library(scales)
 library(devtools)
@@ -21,6 +20,11 @@ library(ggalluvial)
 library(here)
 library(dplyr)
 library(treemapify)
+library(sf)
+library(lwgeom)
+library(grid)
+library(gridExtra)
+library(ggplot2)
 
 # use data cleaning script from exploration plots assignment to load and clean data
 source(here("data_cleaning.R"))
@@ -35,7 +39,7 @@ source("https://gist.githubusercontent.com/benmarwick/2a1bb0133ff568cbe28d/raw/f
 
 th <- theme(axis.title = element_text(family = "Montserrat-Italic", color = "#000000", size = 11),
             axis.text = element_text(family = "Montserrat", color = "#000000", size = 9),
-            panel.background = element_rect(fill = "#f2f2f2"),
+            panel.background = element_rect(fill = "#f9f9f9"),
             panel.grid.major = element_line (color = "#FFFFFF", size = 0.5),
             panel.grid.minor = element_line (color = "#FFFFFF", size = 0.1),
             plot.title = element_text(family = "Montserrat", color = "#000000", size = 16),
@@ -45,7 +49,21 @@ th <- theme(axis.title = element_text(family = "Montserrat-Italic", color = "#00
             legend.title = element_text(family = "Montserrat", color = "#000000", size = 11),
             strip.text =  element_text(family = "Montserrat", color = "#000000", size = 10))
 
+
+map_th <- theme(axis.title = element_text(family = "Montserrat-Italic", color = "#000000", size = 11),
+            axis.text = element_text(family = "Montserrat", color = "#000000", size = 9),
+            panel.background = element_rect(fill = "#484848"),
+            panel.grid.major = element_line (color = "#FFFFFF", size = 0.5),
+            panel.grid.minor = element_line (color = "#FFFFFF", size = 0.1),
+            plot.title = element_text(family = "Montserrat", color = "#000000", size = 16),
+            plot.subtitle = element_text(family = "Montserrat", color = "#000000", size = 12),
+            plot.caption = element_text(family = "Montserrat", color = "#000000", size = 10),
+            legend.text = element_text(family = "Montserrat", color = "#000000", size = 10),
+            legend.title = element_text(family = "Montserrat", color = "#000000", size = 11),
+            strip.text =  element_text(family = "Montserrat", color = "#000000", size = 10))
 ```
+
+
   
 
 ## Main Categorical Colors
@@ -78,17 +96,38 @@ Diverging 6-point scale: c("#125169", "#2699D0", "#a9d9ef","#fabe7a", "#F89E37",
 # Plot 1: How does development project performance vary by region?
 
 ```{r, fig.width = 12, fig.height = 9}
+p <- data %>%
+  filter(completion_year > 2000) %>%
+  select(region, performance_cat, satisfactory) %>%
+  group_by(region, performance_cat) %>%
+  #transmute(performance_cat, percent = value/sum(value)) %>%
+  summarise(
+    count = n()
+  ) %>%
+  mutate(percent = count/sum(count)) %>%
+  filter(!is.na(region) & region != "Northern America") %>%
+  filter(performance_cat %in% c("marginally satisfactory", "satisfactory", "highly satisfactory")) %>%
+  group_by(region) %>%
+  summarize(s = sum(percent)) %>%
+  arrange(desc(s))
+  
+lvls <- p$region
+
 data %>%
   filter(completion_year > 2000) %>%
   select(region, performance_cat, satisfactory) %>%
   group_by(region, performance_cat) %>%
+  #transmute(performance_cat, percent = value/sum(value)) %>%
   summarise(
     count = n()
   ) %>%
+  mutate(percent = count/sum(count)) %>%
   filter(!is.na(region) & region != "Northern America") %>%
-  ggplot(aes(x = region , y = count,fill = fct_rev(performance_cat))) + 
+  #ggplot(aes(x = factor(region, levels = lvls) , y = count,fill = fct_rev(performance_cat))) + 
+ggplot(aes(x = factor(region, levels = lvls) , y = percent, fill = fct_rev(performance_cat))) + 
   geom_bar(position = "fill",stat = "identity") +
-  scale_y_continuous(labels = percent_format(), expand = c(0, 0)) +
+  #scale_y_continuous(labels = percent_format(), expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
   scale_fill_manual(values = c("#125169", "#2699D0", "#a9d9ef","#fabe7a", "#F89E37", "#b83d05"), na.value = "#424242") + 
   th +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
@@ -130,7 +169,7 @@ top20$country_name[top20$country_name == "Micronesia (Federated States of)"] <- 
 
 ggplot(top20, aes(x=reorder(country_name, pct_unsatisfactory), y=pct_unsatisfactory, label=pct_unsatisfactory)) + 
   geom_bar(stat='identity', aes(fill= continent), width=.5)  +
-  scale_fill_manual(values = c("#2699D0", "#F69D30", "#E31480", "#4CA145", "#6a6a6a")) +
+  scale_fill_manual(values = c("#E31480", "#2699D0","#6a6a6a", "#F69D30", "#4CA145")) +
   labs( x = "Country", y = "Percentage of Projects Unsatisfactory (2000-2015)", 
         title ="Nauru, Botswana Have the Largest Proportion of Unsatisfactory Projects", 
         subtitle = "The 20 countries with the highest proportion of unsatisfactory projects are concentrated \n in Africa and New Zealand + Oceania",
@@ -238,7 +277,8 @@ data_sdg_ghana$discrete_performance = cut(data_sdg_ghana$performance, breaks= c(
 ggplot(data_sdg_ghana, aes(x= rank.x, y = rank.y, fill = discrete_performance)) + 
   geom_point(shape = 21, size = 4) +
   geom_text(label= data_sdg_ghana$goal,nudge_y = 0.45, check_overlap = T, vjust="inward",hjust="inward", family = "Montserrat") +
-  scale_fill_manual( values = rev(c("#125169", "#2699D0", "#a9d9ef","#F89E37", "#b83d05")), na.value="#424242") +
+  scale_fill_manual( values = rev(c("#125169", "#2699D0", "#a9d9ef","#F89E37", "#b83d05")), na.value="#424242", 
+                     labels = c("(3.0-3.5]", "(3.5-4.0]", "(4.0-4.5]", "(4.5-5.0]", "NA")) +
   scale_y_reverse(name = "Leader Priority", breaks = seq(1, 17, 1)) +
   scale_x_reverse(name = "Donor Priority", breaks = seq(1, 17, 1)) +
   labs(y = "Leader Priority", x = "Donor Priority", fill = "Average Performance", size = "Total Spending",
@@ -249,6 +289,10 @@ ggplot(data_sdg_ghana, aes(x= rank.x, y = rank.y, fill = discrete_performance)) 
   #annotate("text", label = "Sources: Project Performance \nDatabase (Honig 2018), \nListening to Leaders \n(Custer et al 2018)", x = 2.5, y = 15, size = 3) +
   annotate("text", label = "Higher Donor Priority >>", x = 4, y = 17, size = 4, color = "#4CA145", fontface =2, family = "Montserrat") +
   annotate("text", label = "Higher Leader Priority >>", x = 17, y = 4, size = 4, color = "#4CA145", angle = 90, fontface=2, family = "Montserrat") +
+  annotate("segment", x = 6, xend = 1.1, y = 1, yend = 1, colour = "#4CA145", size=3, alpha=0.6, arrow=arrow()) +
+  annotate("text", label = "Ghanian leaders pioritize Economic Growth", x = 3, y = .9, colour = "#4CA145", size=4,  fontface =2, family = "Montserrat") +
+  annotate("segment", x = 1, xend = 1, y = 7, yend = 1.1, colour = "#4CA145", size=3, alpha=0.6, arrow=arrow()) +
+  annotate("text", label = "Donors pioritize Health", x = .9, y = 3.5, size=4, colour = "#4CA145", size=2, angle = 90,  fontface =2, family = "Montserrat") +
   th
 
 ```
@@ -297,7 +341,11 @@ Ghanaian political and non-governmental development leaders diverge considerably
       geom_alluvium(aes(fill = as.factor(satisfactory))) +
       scale_fill_manual(values= c("#F69D30", "#2699D0")) +
       geom_stratum() +
-      geom_label(stat = "stratum", label.strata = TRUE, family = "Montserrat") +
+      #geom_label(stat = "stratum", label.strata = TRUE, family = "Montserrat") +
+      ggrepel::geom_label_repel(aes(label = donor),
+      stat = "stratum", size = 5, direction = "y", nudge_x = -.2, family = "Montserrat") + 
+      ggrepel::geom_label_repel(aes(label = goal),
+      stat = "stratum", size = 5, direction = "y", nudge_x = .2, family = "Montserrat") + 
       scale_y_continuous(labels = c("$0", "$2 bil", "$4 bil", "$6 bil")) +
       scale_x_discrete(limits = c("Donor", "SDG"), expand = c(.1, .05)) +
        scale_linetype_manual(values = c("blank", "solid")) +
@@ -306,6 +354,7 @@ Ghanaian political and non-governmental development leaders diverge considerably
        subtitle = "Ghana Satisfactory and Unsatisfactory Development Projects by Donor, SDG, and Leader Rank",
        caption = "Sources: Project Performance Database (Honig 2018), Listening to Leaders (Custer et al 2018)") +
        th
+  
 ```
 
 This chart illuminates that the World Bank is not only far and away the largest donor to Ghana since 2000, but also tends to fund fewer, higher cost projects in its most funded Sustainable Development Goals of good health and peace, justice, and strong institutions. However, a result of this is that a single large unsatisfactory World Bank health project dramatically changes the performance composition of the entire sector in Ghana. We also observe considerable specialization across donors, with DFID emerging as the dominant funder of quality education and sole funder of gender equality, and the World Bank dominating the good health goal and serving as the sole funder of affordable/clean energy.   
@@ -318,15 +367,17 @@ This chart illuminates that the World Bank is not only far and away the largest 
 data%>%
   filter(!is.na(data$performance_cat) & external_evaluator %in% c("internal", "external", "independent eval office") & project_cost > 0 & project_cost < 500000000) %>%
   mutate(performane_cat = as.factor(performance_cat)) %>%
-  ggplot(aes(x=performance_cat, y=project_cost, fill = fct_rev(performance_cat))) + 
+  mutate(project_cost_mil = project_cost/1000000) %>%
+  mutate(external_evaluator = fct_recode(external_evaluator, "By External Evaluator" = "external", "By Independent Eval Office" = "independent eval office", "By Internal Evaluator" = "internal")) %>%
+  ggplot(aes(x=performance_cat, y=project_cost_mil, fill = fct_rev(performance_cat))) + 
     geom_flat_violin(position = position_nudge(x = .2, y = 0), alpha = .8) +
-    geom_point(aes(y = project_cost, color = fct_rev(performance_cat)), 
+    geom_point(aes(y = project_cost_mil, color = fct_rev(performance_cat)), 
              position = position_jitter(width = .15), size = .5, alpha = 0.8) +
     geom_boxplot(width = .1, outlier.shape = NA, alpha = 0.5) +
     #expand_limits(x = 5.25) +
     guides(fill = FALSE) +
     guides(color = FALSE) +
-    scale_y_continuous(labels = comma, breaks = seq(0, 500000000, 100000000), expand = c(0,0)) +
+    scale_y_continuous(labels = comma, breaks = seq(0, 500, 100), expand = c(0,0)) +
     scale_x_discrete(labels = c("highly\nunsatisfactory", "marginally\nunsatisfactory", "unsatisfactory",
                                   "satisfactory", "marginally\nsatisfactory", "highly\nsastisfactory")) +
     coord_flip() +
@@ -336,7 +387,7 @@ data%>%
     scale_fill_manual(values = c("#125169", "#2699D0", "#a9d9ef","#fabe7a", "#F89E37", "#b83d05"), na.value = "#424242") +
     scale_color_manual(values = c("#125169", "#2699D0", "#a9d9ef","#fabe7a", "#F89E37", "#b83d05"), na.value = "#424242") +
     facet_wrap(~external_evaluator, ncol = 3) +
-    labs(x = "Project Performance Category", y = "Project Cost", fill = "Project Performance \nCategory",
+    labs(x = "Project Performance Category", y = "Project Cost (millions)", fill = "Project Performance \nCategory",
        title = "Highest Cost Projects Slightly More Likely to Receive Top Ranking", 
        subtitle = "The highly satisfactory ranking has a higher density of more costly projects, perhaps signaling greater\nmanagement quality for higher budget programs",
        caption = "Sources: Project Performance Database (Honig 2018)") +
@@ -350,7 +401,7 @@ Does a larger project budget translate to better management and higher performan
 
 ### Fig 7: How does the World Bank allocate its funding across continents and SDGs? ###
 
-```{r, fig.width= 10, fig.height = 10}
+```{r, fig.width= 12, fig.height = 8}
 data_sdg_gather <- data_sdg %>%
       select(aiddata_id, goal_1, goal_2, goal_3, goal_4, goal_5, goal_6, goal_7, goal_8, goal_9, goal_10, goal_11, goal_12, goal_13,
              goal_14, goal_15, goal_16, goal_17, continent, satisfactory, donor, completion_year) %>%
@@ -386,10 +437,10 @@ data_sdg_gather  %>%
  ggplot(aes(area = funding, fill = prop_satisfactory_factor, label =goal,
                 subgroup = continent)) +
   geom_treemap(color = "white", size = 3 , alpha = 1) +
-  geom_treemap_text(colour = "white", place = "center", reflow = T, family= "Montserrat", fontface = "bold") +
+  geom_treemap_text(colour = "white", place = "bottomright", reflow = T, family= "Montserrat", fontface = "bold") +
   geom_treemap_subgroup_border(color = "#125169", size = 5) +
   geom_treemap_subgroup_text(place = "topleft", colour =
-                             "white", fontface = "italic", family = "Montserrat") +
+                             "black", fontface = "italic", family = "Montserrat") +
   scale_fill_manual(values = rev(c("#125169", "#2699D0", "#a9d9ef","#F89E37", "#b83d05"))) + th + 
   labs(fill = "Proportion Satisfactory \nProjects", area = "Total Funding",
        title = "World Bank Projects Perform Worse in Africa Across Nearly All Sectors ", 
@@ -400,3 +451,153 @@ data_sdg_gather  %>%
 ```
 
 The plot above shows the distribution of World Bank funding since 2000 by continent and Sustainable Development Goal. We clearly see that approximately half of World Bank funding has gone to Asia, where the Bank enjoys strong project performance across sectors. Africa is a different story- where at least 30% of projects are unsatisfactory across all goals except for Sustainable Cities, Clean Water and Sanitation, and Industry and Infrastructure. We also see that Health is an outlier in North America, with at least 30% of World Bank projects receiving unsatisfactory rankings. 
+
+### Fig 8: Top Funded SDG by Country ###
+
+
+```{r, warning= FALSE, fig.width = 10, fig.height = 8, message = FALSE, results='hide',fig.keep='all'}
+data_sdg_country <- data_sdg%>% 
+                    select(aiddata_id, goal_1, goal_2, goal_3, goal_4, goal_5, 
+                           goal_6, goal_7, goal_8, goal_9, goal_10, goal_11, goal_12, goal_13, 
+                           goal_14, goal_15, goal_16, goal_17, continent, satisfactory, six_overall_rating, performance_cat,                            country_code, country_name, donor, completion_year) %>%
+                    gather(key = "goal", value = "funding", goal_1, goal_2, goal_3, goal_4, goal_5, goal_6, goal_7,                                     goal_8, goal_9, goal_10, goal_11, goal_12, goal_13, goal_14, goal_15, goal_16, goal_17) %>%
+                    group_by(country_name) %>%
+                    filter(funding > 0 & completion_year >= 2000) %>%
+                    filter(funding == max(funding))
+
+g <- data_sdg_country %>% group_by(goal) %>% summarise(n = n())
+g <- g[order(-g$n),]
+top_5 <- g$goal[1:5]
+
+data_sdg_country <- data_sdg_country %>% 
+                    mutate(goal = replace(goal, !(goal %in% top_5), "Other")) %>%
+                    mutate(goal = replace(goal, goal == "goal_11", "Sustainable cities")) %>%
+                    mutate(goal = replace(goal, goal == "goal_16", "Peace/justice & strong inst.")) %>%
+                    mutate(goal = replace(goal, goal == "goal_7", "Affordable/clean energy")) %>%
+                    mutate(goal = replace(goal, goal == "goal_3", "Good health")) %>%
+                    mutate(goal = replace(goal, goal == "goal_4", "Quality education"))
+
+world_shp <- st_read(here("data/ne_50m_admin_0_countries_lakes", "ne_50m_admin_0_countries_lakes.shp"), stringsAsFactors = FALSE, quiet = TRUE) %>%
+   select(country_name = NAME_LONG)
+                    
+data_sdg_world <- left_join(world_shp, data_sdg_country) %>%
+  st_as_sf() %>%
+  filter(country_name != "Antarctica") 
+
+ggplot(data = data_sdg_world) +
+  geom_sf(aes(fill = goal), colour = "white") +
+  scale_fill_manual(values = c("#2699D0", "#F69D30", "#6a6a6a", "#4CA145", "#C42231", "#E31480"), na.value = "#d9d9d9") +
+  scale_y_continuous(expand = c(0,0)) +
+  coord_sf(crs = 4326, datum = NA) +
+  map_th +
+  theme(legend.position = "bottom", legend.direction = "horizontal", 
+        panel.background = element_rect(fill = "#ffffff")) +
+  labs(fill= "Goal Receiving\nMostFunding", 
+       title = "Energy spending dominates in East Asia, focus on strong institutions in Central Africa",
+       subtitle = "The affordable/clean energy, good health, quality education, peace, justice, and strong institutions,\n and sustainable cities rank most frequently as the top-funded SDG by country",
+       caption = "Sources: Project Performance Database (Honig 2018), Natural Earth 4.1.0") 
+
+```
+
+The above map shows that 5 of the 17 Sustainable Development Goals are the most-funded in the vast majority of countries. The map also illustrates clear regional trends in the most highly funded SDG by country. We see that the group of neighboring African countries Ethiopia, Sudan, Chad, and Niger receive the most funding for peace, justice, and strong institutions, likely explained by the history of conflict in that region. Interestingly, funding for affordable energy dominates Central and East Asia, perhaps signaling that such investments are particularly successful in this region.
+
+### Fig 9: World Bank and Chinese Investment in Ghana ###
+
+```{r, fig.width = 10, fig.height= 10, warning= FALSE, results='hide',fig.keep='all', message=FALSE}
+
+#Approach adapted from: https://www.cultureofinsight.com/blog/2018/05/02/2018-04-08-multivariate-dot-density-maps-in-r-with-sf-ggplot2/
+
+# Chinese and WB aid to Ghana from 2001-2014 from GeoQuery
+gq_data <- read_csv(here("data", "geoquery_results_sector.csv")) %>% 
+  select(asdf_id, NAME_2, NAME_1, WB_economic = worldbank_geocodedresearchrelease_level1_v1_4_2.41c4bbe.sum,
+         WB_human = worldbank_geocodedresearchrelease_level1_v1_4_2.6b5a55b.sum,
+         China_economic = chinatotal_geocodedresearchrelease_level1_v1_1_0.4b81e17.sum, 
+         China_human = chinatotal_geocodedresearchrelease_level1_v1_1_0.0052fb2.sum
+         )
+
+leg_data <- gq_data %>% gather(key = "fund_type", value = "funding", WB_economic, WB_human, China_economic,
+                                     China_human) %>%
+                  group_by(fund_type) %>%
+                  summarise(total_funding_mil = sum(funding)/1000000) 
+
+barplot_leg <- ggplotGrob(ggplot(leg_data, aes(x=fund_type, y=total_funding_mil)) +
+                  geom_bar(stat = 'identity', aes(fill = fund_type), width = .5) +
+                  scale_fill_manual(values = c("#C42231", "#F69D30", "#2699D0", "#4CA145")) +
+                  scale_y_continuous(labels = comma, expand = c(0,0)) +
+                  theme(
+                    plot.background = element_rect(fill = "transparent"),
+                    panel.border = element_blank(),
+                    panel.background = element_rect(fill = "transparent"),
+                    panel.grid.major.y = element_blank(),
+                    panel.grid.major.x = element_blank(),
+                    panel.grid.minor = element_blank(),
+                    axis.title.y = element_blank(),
+                    axis.title.x = element_text(family = "Montserrat", color = "white"),
+                    axis.ticks = element_blank(),
+                    axis.text.x = element_text(family = "Montserrat", color = "white"),
+                    axis.text.y = element_text(family = "Montserrat", color = "white"),
+                    axis.line = element_blank(),
+                    legend.position = "none"
+                  ) + labs(y = "Total Funding (millions)") + coord_flip())
+                  
+
+# Ghana ADM2 Shapefile from GADM
+ghana2 <- st_read(here("data/gadm36_GHA_shp", "gadm36_GHA_2.shp"), stringsAsFactors = FALSE, quiet = TRUE) 
+
+# merge the data
+sf_data <- left_join(gq_data, ghana2, by = "NAME_2") %>% 
+  st_as_sf() 
+
+random_round <- function(x) {
+    v=as.integer(x)
+    r=x-v
+    test=runif(length(r), 0.0, 1.0)
+    add=rep(as.integer(0),length(r))
+    add[r>test] <- as.integer(1)
+    value=v+add
+    ifelse(is.na(value) | value<0,0,value)
+    return(value)
+  }
+
+# data frame of number of dots to plot for each donor and district, (1 for every $1,000,000)
+num_dots <- as.data.frame(sf_data) %>% 
+  select(WB_economic, WB_human, China_economic, China_human) %>% 
+  mutate_all(funs(. / 1000000)) %>% 
+  mutate_all(random_round)
+
+suppressMessages(sf_dots <- map_df(names(num_dots), 
+                  ~ st_sample(sf_data, size = num_dots[,.x], type = "random") %>% 
+                    st_cast("POINT") %>%                                         
+                    st_coordinates() %>%                                         
+                    as_tibble() %>%                                              
+                    setNames(c("lon","lat")) %>%                                  
+                    mutate(Donor = .x) #%>%
+                    #mutate(Donor = fct_recode(Donor, "World Bank" = "WB_spending", "China" = "China_spending"))
+                  ) %>% 
+  slice(sample(1:n()))) # once map_df binds rows randomise order to avoid bias in plotting order
+
+ggplot() +
+  geom_sf(data = sf_data, fill = "transparent",colour = "white") +
+  geom_point(data = sf_dots, aes(lon, lat, colour = Donor), size = 1) +
+  annotate(geom = "point", x = -0.2, y = 5.55, 
+     color = "#E31480", size = 7) +
+  annotate(geom = "point", x = -2.235833, y = 8.278333, 
+    color = "#E31480", size = 7) +
+  annotate(geom = "label", x = -0.2, y = 5.46, label = "Accra", 
+    fontface = "bold", color = "#E31480", size = 4, family = "Montserrat") +
+  annotate(geom = "label", x = -2.235833, y = 8.18, label = "Bui Dam", 
+    fontface = "bold", color = "#E31480", size = 4, family = "Montserrat") +
+  scale_colour_manual(values = c("#C42231", "#F69D30", "#2699D0", "#4CA145")) + 
+  coord_sf(crs = 4326, datum = NA) +
+  map_th +
+  labs(x = NULL, y = NULL,
+       title = "Chinese investment in Ghana led by construction of Bui Dam, mining interests",
+       subtitle = "Chinese funding of the construction of the Bui Dam as well as mining interests in the North\n concentrate Chinese investment while WB funding spread more evenly throughout the country\n(Districts of Ghana, one dot = $1,000,000)",
+       caption = "Sources: Chinese Official Finance v1.1.1 (AidData, 2018), World Bank Geocoded Aid Data\n(AidData, 2017), Goodman, S., BenYishay, A., Lv, Z., & Runfola, D. (2019), GADM (2018)") +
+  annotation_custom(
+    grob = barplot_leg,
+    xmin = -0.4, xmax = 1.2, ymin = 4.5, ymax = 5.3 ) #+
+  #guides(colour = guide_legend(override.aes = list(size = 18)))  +
+```
+
+This map illustrates several interesting spatial patterns of World Bank and Chinese funding in Ghana. First, we see a clear concentration of Chinese funding in the district containing the Bui Dam. This hydroelectric energy project funded in large part by the two credits from China Exim Bank totalling over $550 million. We also see that there is a much greater concentration of Chinese investment than World Bank in northern Ghana, likely driven by China's investments in mining in that region of the country. While both China and the World Bank see a concentration of funding in major cities, namely the capital of Accra, World Bank funding is far more evenly distributed throughout Ghana than Chinese funding. 
