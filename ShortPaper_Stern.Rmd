@@ -401,7 +401,7 @@ Does a larger project budget translate to better management and higher performan
 
 ### Fig 7: How does the World Bank allocate its funding across continents and SDGs? ###
 
-```{r, fig.width= 12, fig.height = 8}
+```{r, fig.width= 14, fig.height = 11}
 data_sdg_gather <- data_sdg %>%
       select(aiddata_id, goal_1, goal_2, goal_3, goal_4, goal_5, goal_6, goal_7, goal_8, goal_9, goal_10, goal_11, goal_12, goal_13,
              goal_14, goal_15, goal_16, goal_17, continent, satisfactory, donor, completion_year) %>%
@@ -503,7 +503,7 @@ The above map shows that 5 of the 17 Sustainable Development Goals are the most-
 
 ### Fig 9: World Bank and Chinese Investment in Ghana ###
 
-```{r, fig.width = 10, fig.height= 10, warning= FALSE, results='hide',fig.keep='all', message=FALSE}
+```{r, fig.width = 12, fig.height= 12, warning= FALSE, results='hide',fig.keep='all', message=FALSE}
 
 #Approach adapted from: https://www.cultureofinsight.com/blog/2018/05/02/2018-04-08-multivariate-dot-density-maps-in-r-with-sf-ggplot2/
 
@@ -532,7 +532,7 @@ barplot_leg <- ggplotGrob(ggplot(leg_data, aes(x=fund_type, y=total_funding_mil)
                     panel.grid.major.x = element_blank(),
                     panel.grid.minor = element_blank(),
                     axis.title.y = element_blank(),
-                    axis.title.x = element_text(family = "Montserrat", color = "white"),
+                    axis.title.x = element_text(family = "Montserrat", color = "white", size = 8),
                     axis.ticks = element_blank(),
                     axis.text.x = element_text(family = "Montserrat", color = "white"),
                     axis.text.y = element_text(family = "Montserrat", color = "white"),
@@ -587,7 +587,7 @@ ggplot() +
     fontface = "bold", color = "#E31480", size = 4, family = "Montserrat") +
   annotate(geom = "label", x = -2.235833, y = 8.18, label = "Bui Dam", 
     fontface = "bold", color = "#E31480", size = 4, family = "Montserrat") +
-  scale_colour_manual(values = c("#C42231", "#F69D30", "#2699D0", "#4CA145")) + 
+  scale_colour_manual(values = c("#C42231", "#F69D30", "#2699D0", "#4CA145"), guide = FALSE) + 
   coord_sf(crs = 4326, datum = NA) +
   map_th +
   labs(x = NULL, y = NULL,
@@ -596,7 +596,7 @@ ggplot() +
        caption = "Sources: Chinese Official Finance v1.1.1 (AidData, 2018), World Bank Geocoded Aid Data\n(AidData, 2017), Goodman, S., BenYishay, A., Lv, Z., & Runfola, D. (2019), GADM (2018)") +
   annotation_custom(
     grob = barplot_leg,
-    xmin = -0.4, xmax = 1.2, ymin = 4.5, ymax = 5.3 ) #+
+    xmin = -0.4, xmax = 1.4, ymin = 4.5, ymax = 5.3 ) #+
   #guides(colour = guide_legend(override.aes = list(size = 18)))  +
 ```
 
