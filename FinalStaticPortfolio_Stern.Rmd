@@ -159,19 +159,15 @@ data %>%
   filter(completion_year > 2000) %>%
   select(region, performance_cat, satisfactory) %>%
   group_by(region, performance_cat) %>%
-  #transmute(performance_cat, percent = value/sum(value)) %>%
-  #order(desc(performance_cat)) %>%
   summarise(
     count = n()
   ) %>%
   mutate(percent = count/sum(count)) %>%
   filter(!is.na(region) & region != "Northern America") %>%
   
-  #ggplot(aes(x = factor(region, levels = lvls) , y = count,fill = fct_rev(performance_cat))) + 
 ggplot(aes(x = factor(region, levels = lvls) , y = percent, fill = factor(performance_cat, levels = sat_labels, exclude = NULL))) + 
   geom_bar(position = "fill",stat = "identity") +
   scale_y_continuous(labels = percent_format(), expand = c(0, 0)) +
-  #scale_y_continuous(expand = c(0, 0)) +
   scale_fill_manual(values = c("#b83d05","#F89E37", "#fabe7a", "#a9d9ef",  "#2699D0", "#125169"), na.value = "#424242") + 
   th +
   coord_flip() +
@@ -225,7 +221,6 @@ ggplot(top20, aes(x=reorder(country_name, pct_unsatisfactory), y=pct_unsatisfact
   th +
   geom_text(aes(label=paste(round(pct_unsatisfactory*100,2),'%', '')), size =3, position=position_dodge(width=0.9), hjust= -0.04, family = "Montserrat") +
   scale_y_continuous(labels = percent_format(), expand = c(0,0), limit = lim) +
-  #scale_x_discrete(expand=c(0,0)) +
   coord_flip() 
 ```
 
@@ -507,7 +502,7 @@ The above map shows that 5 of the 17 Sustainable Development Goals (SDG) are the
 
 # 8: World Bank and Chinese Investment in Ghana
 
-```{r, fig.width = 14, fig.height= 12, warning= FALSE, results='hide',fig.keep='all', message=FALSE}
+```{r, out.width = "100%", fig.width = 14, fig.height= 12, warning= FALSE, results='hide',fig.keep='all', message=FALSE}
 
 #Approach adapted from: https://www.cultureofinsight.com/blog/2018/05/02/2018-04-08-multivariate-dot-density-maps-in-r-with-sf-ggplot2/
 
@@ -547,8 +542,6 @@ barplot_leg <- ggplotGrob(ggplot(leg_data, aes(x=fund_type, y=total_funding_mil)
 
 # Ghana ADM2 Shapefile from GADM
 ghana2 <- st_read(here("data/gadm36_GHA_shp", "gadm36_GHA_2.shp"), stringsAsFactors = FALSE, quiet = TRUE) 
-
-ne_data <- st_read(here("data/ne_110m_populated_places", "ne_110m_populated_places.shp"))
 
 # merge the data
 sf_data <- left_join(gq_data, ghana2, by = "NAME_2") %>% 
@@ -598,7 +591,7 @@ ggplot() +
   annotate(geom = "label", x = -2.235833, y = 8.18, label = "Bui Dam", 
     fontface = "bold", color = "#E31480", size = 4, family = "Montserrat") +
   scale_colour_manual(values = c("#C42231", "#F69D30", "#2699D0", "#4CA145"), guide = FALSE) + 
-  scale_y_continuous(expand = c(0,0)) +
+  #scale_y_continuous(expand = c(0,0)) +
   coord_sf(crs = 4326, datum = NA) +
   map_th +
   labs(x = NULL, y = NULL,
