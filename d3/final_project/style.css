@@ -1,0 +1,58 @@
+html,
+body {
+    width: 100%;
+    height: 100%;
+    overflow-x: hidden;
+}
+
+h1,
+h4 {
+    color: #333;
+    margin: 0 0 .5em;
+}
+
+h1 {
+    font: 400 24px/1.3em "Lucida Console", monospace;
+}
+
+h4 {
+    font: 600 16px/1.3em "Lucida Console", monospace;
+}
+
+
+p,
+ul,
+li {
+    font: 300 12px/20px "Lucida Console", monospace;
+    margin: 0 0 .5em;
+    color: #666;
+}
+
+
+.circ_africa { 
+    /*stroke-width: 0;*/
+    opacity: 0.8;
+    fill: #E31480;
+    /*stroke-linecap: round;*/
+ }
+
+.circ_asia { 
+    /*stroke-width: 0;*/
+    opacity: 0.8;
+    fill: #2699D0;
+    /*stroke-linecap: round;*/
+ }
+
+ .tooltip {
+    position: absolute;
+    font-size: 10px;
+    font-family: "Lucida Console", monospace; 
+    width:  auto;
+    height: auto;
+    pointer-events: none;
+    background-color: white;
+}
+
+.circle.active {
+    fill: yellow;
+  }
