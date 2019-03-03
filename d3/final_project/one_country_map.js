@@ -1,6 +1,7 @@
 // create svg and g blocks
 //import {geoPath, geoAlbersUsa} from 'd3-geo';
 //import {select} from 'd3-selection';
+// https://stackoverflow.com/questions/27319304/how-to-have-one-event-call-multiple-functions-d3-javascript
 
 
 document.addEventListener('DOMContentLoaded', () => {
