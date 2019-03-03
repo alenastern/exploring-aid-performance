@@ -65,6 +65,20 @@ function myVis(data) {
             .duration(200) 
             .style("opacity", .9) 
     };
+
+    const onColor = function(d) {
+      svg.selectAll("." + this.getAttribute('class'))
+      .style("fill", "yellow")
+      .style("opacity", .9);
+
+    }
+
+    const outColor = function(d) {
+      svg.selectAll("." + this.getAttribute('class'))
+      .style("fill",  d => color(d.six_overall_rating))
+      .style("opacity", .6);
+
+    }
   // tooltip mouseout event handler
   var tipMouseout = function(d) {
       tooltip.transition()
@@ -84,7 +98,7 @@ function myVis(data) {
         .data(ghanaWB)
         .enter()
         .append('circle')
-        //.attr("class", function(d) { return d.project_id; })
+        .attr("class", function(d) { return d.project_id; })
         .attr("cx", function(d) {
             return projection([d.longitude, d.latitude])[0];
         })
@@ -100,8 +114,16 @@ function myVis(data) {
                     .attr("r", function(d) {
                         return Math.sqrt(parseInt(d.even_split_commitments) * 0.000008);
                  });
-        circles.on("mouseover", tipMouseover);
-        circles.on("mouseout", tipMouseout);
+        //circles.on("mouseover", tipMouseover);
+        //circles.on("mouseout", tipMouseout);
+        circles.on("mouseover", function(d) {
+          tipMouseover(d);
+          onColor.call(this, d);
+        });
+        circles.on("mouseout", function(d) {
+          tipMouseout(d);
+          outColor.call(this, d);
+        });
 
         svg.append("text")             
         .attr("transform",
